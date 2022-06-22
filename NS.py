@@ -16,16 +16,17 @@ class Spider :
 
 class JournalSpider(Spider) :
     def __init__(self, url, date) :
+        self.util = ScrapUtil()
         self.url = url + "?date=" + date
-        self.journal_list = self.get_all_journal_list()
+        self.journal_list = self.get_journal_list()
         
     def get_journal_id(self, string) :
         idx1 = string.rfind('/') 
         id = string[idx1 - 3 : idx1]
         return id
 
-    def get_journal_list(self, tag) :
-        boxes = tag.find_all(class_ = 'rankingnews_box')
+    def get_journal_list_in_group(self, group) :
+        boxes = group.find_all(class_ = 'rankingnews_box')
         journal_list = []
         for box in boxes :
             a = box.find('a')
@@ -42,17 +43,28 @@ class JournalSpider(Spider) :
             journal_list.append(journal)
 
         return journal_list
-
+    
         
-    def get_all_journal_list(self) :
-        soup = self.get_soup(self.url)
-        cards = soup.find_all(class_="_officeCard")
+    def get_journal_list_in_page(self, page) :
+        cards = page.find_all(class_="_officeCard")
         result = []
         for card in cards :
-            journal_list = self.get_journal_list(card)
+            journal_list = self.get_journal_list_in_group(card)
             result.extend(journal_list)
         return result 
-    
+
+    def get_journal_list(self) :
+        page = self.get_soup(self.url)
+        return self.get_journal_list_in_page(page)
+
+    def get_journal_list_by_date(self, date) :
+        change_target = self.url[self.url.find('?') + 1 :]
+        date_param = "date=" + date
+        changed_url = self.url.replace(change_target, date_param)
+        print('url', changed_url)
+        page = self.get_soup(changed_url)
+        return self.get_journal_list_in_page(page)
+
     def get_journal_by_name(self, name) :
         for journal in self.journal_list :
             if journal['name'] == name :
@@ -62,6 +74,13 @@ class JournalSpider(Spider) :
         for journal in self.journal_list :
             if journal['id'] == id :
                 return journal
+    def get_journals_by_date(self, date) :
+        pass
+        
+    # def get_all_journals_by_date_interval(self, start, end) :
+    #     date_list = self.util.get_date_list(start, end)
+
+
 
     # def get_journal_info_by_date(self, date) :
     #     dated_journal_list = []
@@ -78,6 +97,9 @@ class View :
             self.print_news(news)
 
     def print_journal_list(self, journal_list) :
+        if journal_list == None :
+            print('데이터가 없음.')
+            return
         for journal in journal_list :
             self.print_journal(journal)
 
@@ -96,6 +118,7 @@ class View :
         print(f"comment_link : {journal['comment_link']}")
         print("==================================================")
 
+from datetime import datetime, timedelta
 class ScrapUtil:
     @staticmethod
     def get_formated_date(date) :
@@ -106,8 +129,42 @@ class ScrapUtil:
         sep = '.'
         return year + sep + month + sep + day
 
+    def get_date_list(self, start, end) :
+        result = []
+        sdate = self.get_str_to_date(start)
+        edate = self.get_str_to_date(end)
+        print(sdate)
+        print(edate)
+        diff = edate - sdate 
+        print(diff)
+        diff = diff.days
+        print(diff)
 
+        if diff < 0 :
+            return result
+            
+        if diff == 0:
+            result.append(start)
+            
+        elif diff > 0:
+            for i in range(diff + 1) :
+                result.append(self.get_date_to_str(sdate + timedelta(days=i)))
+        
+        return result
+    
+    def get_str_to_date(self, str) : 
+        fmt = '%Y%m%d'
+        date = datetime.strptime(str, fmt)
+        return date
 
+    def get_date_to_str(self, date) : 
+        fmt = '%Y%m%d'
+        str_date = datetime.strftime(date, fmt)
+        return str_date
+
+    def get_now_str(self) :
+        return self.get_date_to_str(datetime.now())
+        
 class NewsSpider(Spider) :
     def get_news_id(self, string) :
         idx1 = string.rfind('/') 
@@ -220,8 +277,10 @@ class CommentSpider(Spider):
         return age_info 
 
 class MyScraper() :
-    def __init__(self, url, date) :
-        self.journal = JournalSpider(url, date)
+    def __init__(self, url) :
+        self.util = ScrapUtil()
+        now_date = self.util.get_now_str()
+        self.journal = JournalSpider(url, now_date)
         self.news = NewsSpider()
         self.comment = CommentSpider()
 
@@ -229,8 +288,11 @@ class MyScraper() :
         news_list = self.news.get_rangking_list(journal_url)
         return news_list 
 
+    def get_all_journal_by_date(self, date) :
+        return self.journal.get_journal_list_by_date(date)
+
     def get_all_journal(self) :
-        return self.journal.get_all_journal_list()
+        return self.journal.get_journal_list()
 
     def get_journal_by_name(self, name) :
         return self.journal.get_journal_by_name(name)
@@ -238,7 +300,7 @@ class MyScraper() :
     def get_news_by_journal(self, journal) :
         return self.news.get_rangking_list(journal['view_link'])
 
-    def get_news_with_comment_rank(self,journal) :
+    def get_news_with_comment_rank(self, journal) :
         return self.get_news_list(journal['comment_link'])
 
     def get_news_with_view_rank(self,journal) :
@@ -280,3 +342,29 @@ class MyScraper() :
         return sum(result) / len(result)
 
         
+class MyScrapFileManager() :
+    def __init__(self) :
+       self.path = "C:/work/python/scrap1/data/" 
+    
+    def set_path(self, path) :
+        self.path = path
+        pass
+
+    def save_journal_list(self, journal_list) :
+        pass 
+
+    def save_news_list(self, news_list) :
+        
+        pass
+
+    def save_comment_list(self, comment_list) :
+        pass
+
+    def load_journal_list(self) :
+        pass
+    
+    def load_news_list(self) :
+        pass
+
+    def load_comment_list(self) :
+        pass

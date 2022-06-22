@@ -29,6 +29,12 @@ view = View()
 # cinfo = sc.get_comment_info_of_news(news_list[0])
 # print(cinfo)
 
-sp = Spider()
-soup = sp.get_soup('https://n.news.naver.com/article/comment/214/0001204141')
-print(soup.find(id='cbox_module'))
+# 1. 댓글 많은 순으로 게시물 스크랩핑
+sc = MyScraper(url2, '20220622')
+journals = sc.get_all_journal()
+view.print_journal_list(journals)
+news_list = sc.get_news_with_comment_rank(journals[0])
+view.print_news_list(news_list)
+
+# 파일로 저장
+
